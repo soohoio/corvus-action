@@ -1,0 +1,46 @@
+# action.yml
+# The metadata filename must be either action.yml or action.yaml.
+# The data in the metadata file defines the inputs, outputs and main entrypoint for your action.
+name: 'Corvus'
+on: [push]
+# Optional The name of the action's author.
+author: astean1001
+# A short description of the action.
+description: Run corvus static analyzer to check security issue in smart contracts.
+# Optional Input parameters allow you to specify data that the action expects to use during runtime.
+#   We recommended using lowercase input ids.
+inputs: 
+  path:
+    description: 'Specify code path'
+    required: false
+    default: '/github/workspace'
+
+
+runs:
+  runs-on: ubuntu-latest
+  container:
+    image: ghcr.io/astean1001/corvus:0.0.2
+    credentials:
+      username: ${{ github.actor }}
+      password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Load code to corvus
+        run: |
+          /codeql/codeql database create ../corvus-db --language=solidity --source-root ${{ inputs.path }} --overwrite
+      - name: Run Detector
+        run: |
+          /codeql/codeql query run --database=/corvus-db -o=report.bqrs -- /home/ubuntu/codeql-solidity/solidity/ql/src/queries/security/oneday/CompoundV2RoundError.ql
+      - name: Detect result to JSON
+        run : |
+          /codeql/codeql bqrs decode --output report.json --format=json report.bqrs
+      - name: JSON to PDF
+        run : |
+          echo "TODO.."
+      - name: Upload generated file as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: sample-artifact
+          path: report.json
